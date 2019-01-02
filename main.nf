@@ -8,10 +8,6 @@ bam = Channel
     .ifEmpty { exit 1, "${params.input_folder}/${params.bam_file_prefix}*.bam not found.\nPlease specify --input_folder option (--input_folder bamfolder)"}
     .map { bam -> tuple(bam.baseName, bam) }
 
-bai = Channel
-    .fromPath("${params.input_folder}/${params.bam_file_prefix}.bam.bai")
-    .ifEmpty { exit 1, "${params.input_folder}/${params.bam_file_prefix}*.bam.bai not found.\nPlease specify --input_folder option (--input_folder bamfolder)"}
-
 ref = Channel
 		.fromPath(params.ref)
 		.ifEmpty { exit 1, "${params.ref} not found.\nPlease specify --ref option (--ref fastafile)"}
@@ -35,13 +31,38 @@ summary['Working dir']      = workflow.workDir
 log.info summary.collect { k,v -> "${k.padRight(15)}: $v" }.join("\n")
 log.info "========================================="
 
+process preprocess_bam{
+
+  tag "${bam}"
+	container 'lifebitai/samtools'
+
+  input:
+  set val(name), file(bam) from bam
+
+  output:
+  set val(name), file("ready/${bam}"), file("ready/${bam}.bai") into completeChannel
+
+  script:
+  """
+  mkdir ready
+  [[ `samtools view -H ${bam} | grep '@RG' | wc -l`   > 0 ]] && { mv $bam ready;}|| { picard AddOrReplaceReadGroups \
+  I=${bam} \
+  O=ready/${bam} \
+  RGID=${params.rgid} \
+  RGLB=${params.rglb} \
+  RGPL=${params.rgpl} \
+  RGPU=${params.rgpu} \
+  RGSM=${params.rgsm};}
+  cd ready ;samtools index ${bam};
+  """
+}
+
 process tardis {
 
 	publishDir "${params.outdir}", mode: 'copy'
 
 	input:
-  set bam_name, file(bam) from bam
-  file bai from bai
+  set bam_name, file(bam), file(bai) from completeChannel
 	file ref from ref
 	file sonic from sonic
 
