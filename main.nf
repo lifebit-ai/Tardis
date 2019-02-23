@@ -5,8 +5,17 @@
  */
 bam = Channel
     .fromPath("${params.input_folder}/${params.bam_file_prefix}.bam")
-    .ifEmpty { exit 1, "${params.input_folder}/${params.bam_file_prefix}*.bam not found.\nPlease specify --input_folder option (--input_folder bamfolder)"}
-    .map { bam -> tuple(bam.baseName, bam) }
+    .ifEmpty { exit 1, "${params.input_folder}/${params.bam_file_prefix}.bam not found.\nPlease specify --input_folder option (--input_folder bamfolder)"}
+    .map { bam -> tuple(bam.simpleName, bam) }
+
+if (params.bai) {
+bai = Channel
+    .fromPath("${params.input_folder}/${params.bam_file_prefix}.bam.bai")
+    .ifEmpty { exit 1, "${params.input_folder}/${params.bam_file_prefix}.bam.bai not found.\nPlease specify ensure that your BAM index(es) are in your bamfolder"}
+    .map { bai -> tuple(bai.simpleName, bai) }
+
+completeChannel = bam.combine(bai, by: 0)
+}
 
 ref = Channel
 		.fromPath(params.ref)
@@ -15,6 +24,11 @@ ref = Channel
 sonic = Channel
     .fromPath(params.sonic)
     .ifEmpty { exit 1, "${params.sonic} not found.\nPlease specify --sonic option (--sonic sonicfile)"}
+
+extraflags = ""
+extraflags += params.rp ? " --rp" : ""
+extraflags += params.first_chr ? " ----first-chr" : ""
+extraflags += params.last_chr ? " --last-chr" : ""
 
 // Header log info
 log.info """=======================================================
@@ -31,7 +45,8 @@ summary['Working dir']      = workflow.workDir
 log.info summary.collect { k,v -> "${k.padRight(15)}: $v" }.join("\n")
 log.info "========================================="
 
-process preprocess_bam{
+if (!params.bai) {
+  process preprocess_bam{
 
   tag "${bam}"
 	container 'lifebitai/samtools'
@@ -55,14 +70,17 @@ process preprocess_bam{
   RGSM=${params.rgsm};}
   cd ready ;samtools index ${bam};
   """
+  }
 }
 
-process tardis {
 
+
+process tardis {
+  tag "$bam_name"
 	publishDir "${params.outdir}", mode: 'copy'
 
 	input:
-  set bam_name, file(bam), file(bai) from completeChannel
+  set val(bam_name), file(bam), file(bai) from completeChannel
 	file ref from ref
 	file sonic from sonic
 
@@ -75,7 +93,7 @@ process tardis {
   --input $bam \
   --ref $ref \
   --sonic $sonic \
-  --output $bam_name
+  --output $bam_name ${extraflags}
 	"""
 }
 
