@@ -26,9 +26,9 @@ sonic = Channel
     .ifEmpty { exit 1, "${params.sonic} not found.\nPlease specify --sonic option (--sonic sonicfile)"}
 
 extraflags = ""
-extraflags += params.rp ? " --rp" : ""
-extraflags += params.first_chr ? " ----first-chr" : ""
-extraflags += params.last_chr ? " --last-chr" : ""
+extraflags += params.rp ? " --rp $params.rp" : ""
+extraflags += params.first_chr ? " ----first-chr $params.first_chr" : ""
+extraflags += params.last_chr ? " --last-chr $params.last_ch" : ""
 
 // Header log info
 log.info """=======================================================
