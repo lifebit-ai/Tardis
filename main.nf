@@ -8,10 +8,10 @@ bam = Channel
     .ifEmpty { exit 1, "${params.input_folder}/${params.bam_file_prefix}.bam not found.\nPlease specify --input_folder option (--input_folder bamfolder)"}
     .map { bam -> tuple(bam.simpleName, bam) }
 
-if (params.bai) {
+if (params.get_bai) {
 bai = Channel
     .fromPath("${params.input_folder}/${params.bam_file_prefix}*.bai")
-    .ifEmpty { exit 1, "${params.input_folder}/${params.bam_file_prefix}.bam.bai not found.\nPlease specify ensure that your BAM index(es) are in your bamfolder"}
+    .ifEmpty { exit 1, "${params.input_folder}/${params.bam_file_prefix}*.bai not found.\nPlease specify ensure that your BAM index(es) are in your input_folder"}
     .map { bai -> tuple(bai.simpleName, bai) }
 
 completeChannel = bam.combine(bai, by: 0)
@@ -45,7 +45,7 @@ summary['Working dir']      = workflow.workDir
 log.info summary.collect { k,v -> "${k.padRight(15)}: $v" }.join("\n")
 log.info "========================================="
 
-if (!params.bai) {
+if (!params.get_bai) {
   process preprocess_bam{
 
   tag "${bam}"
