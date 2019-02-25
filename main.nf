@@ -10,7 +10,7 @@ bam = Channel
 
 if (params.bai) {
 bai = Channel
-    .fromPath("${params.input_folder}/${params.bam_file_prefix}.bam.bai")
+    .fromPath("${params.input_folder}/${params.bam_file_prefix}*.bai")
     .ifEmpty { exit 1, "${params.input_folder}/${params.bam_file_prefix}.bam.bai not found.\nPlease specify ensure that your BAM index(es) are in your bamfolder"}
     .map { bai -> tuple(bai.simpleName, bai) }
 
